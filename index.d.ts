@@ -112,6 +112,12 @@ export interface Row {
 	updated: string;
 	/** Relation columns `expand` resolved, by column name. */
 	expand?: Record<string, LinkedRecord[]>;
+	/** Read with a VISITOR's token: whether this row is that visitor's own
+	 * (DEVE-1014). Absent for every other credential. */
+	mine?: boolean;
+	/** Read with a workspace credential: the visitor who inserted this row.
+	 * Absent on a row nobody claimed, and never shown to a key or a visitor. */
+	visitor?: { id: string; external_id: string };
 	[column: string]: unknown;
 }
 
@@ -167,6 +173,24 @@ export interface RecordOptions extends RequestOptions {
  * by name. A relation column takes the ids it should end up linked to. */
 export type RowInput = Record<string, unknown>;
 
+/** What minting a visitor takes (DEVE-1014). */
+export interface VisitorInput {
+	/** The site's own user id for this visitor. A label, not a proof: bind one
+	 * only when minting from your server. */
+	externalId?: string;
+}
+
+/** A minted visitor. `token` is in this answer and in no other. */
+export interface Visitor {
+	id: string;
+	/** `ttv_...`, the bearer the site sends in the key's place. */
+	token: string;
+	external_id: string;
+	/** ISO, from PocketBase. The key decides how far out it is. */
+	expires: string;
+	created: string;
+}
+
 /**
  * Every refusal in one shape. A non-2xx answer, a network failure and an
  * aborted request all arrive as this.
@@ -216,6 +240,11 @@ export class Database<T = Row> {
 	update(id: string, data: RowInput, options?: RequestOptions): Promise<T>;
 	/** Move one row to the database's trash. */
 	delete(id: string, options?: RequestOptions): Promise<true>;
+	/** The identities this database hands out to a site's visitors. */
+	visitors: {
+		/** Mint one, with a key that holds the `visitors` right. */
+		create(data?: VisitorInput, options?: RequestOptions): Promise<Visitor>;
+	};
 }
 
 export interface TruetaskOptions {
@@ -229,8 +258,9 @@ export class Truetask {
 	/** Where Truetask is served, with no trailing slash. `''` is this page's
 	 * own origin. */
 	url: string;
-	/** A `ttdb_` database key, a personal access token or a session JWT.
-	 * Replace it at any time; the next call uses the new one. */
+	/** A `ttdb_` database key, a `ttv_` visitor token, a personal access token
+	 * or a session JWT. Replace it at any time; the next call uses the new
+	 * one. */
 	credential: string;
 	fetch: FetchLike | null;
 	/** One database by id. */

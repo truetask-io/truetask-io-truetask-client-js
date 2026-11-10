@@ -86,16 +86,17 @@ await orders.getList(1, 30, { fetch: event.fetch });
 
 The **database id** is the id in its address: open the database in Truetask and it is the last part of `/board/<id>`.
 
-The **credential** is a bearer string, and Truetask takes three kinds:
+The **credential** is a bearer string, and Truetask takes four kinds:
 
-| Credential             | Where it comes from          | What it may do                                                    |
-| ---------------------- | ---------------------------- | ----------------------------------------------------------------- |
-| Database key (`ttdb_`) | The database's Share dialog  | Only what the key was given: one database, read or read and write |
-| Personal access token  | Settings, API Tokens         | Whatever you may do, capped by the token's scope                  |
-| Session JWT            | A signed-in person's session | Whatever that person may do                                       |
+| Credential              | Where it comes from              | What it may do                                                     |
+| ----------------------- | -------------------------------- | ------------------------------------------------------------------ |
+| Database key (`ttdb_`)  | The database's Share dialog      | Only what the key was given: one database, read or read and write  |
+| Visitor token (`ttv_`)  | `visitors.create()`, with a key  | What the key may do, with the rows it created marked as its own    |
+| Personal access token   | Settings, API Tokens             | Whatever you may do, capped by the token's scope                   |
+| Session JWT             | A signed-in person's session     | Whatever that person may do                                        |
 
-A database key is the one to give a website, and it arrives with the database's Share dialog.
-Until that ships, a personal access token with the Read Only scope is the credential a page uses.
+A database key is the one to give a website: open the database, Share board, New key, and it names what the key may do, when it stops working and how many requests a minute it gets.
+The secret is shown once.
 
 The server decides, every call: a credential that may only read answers 403 to a write, with a sentence saying so.
 On the database itself, a board viewer reads, an editor and an admin read and write, and a guest is refused.
@@ -226,6 +227,66 @@ Answers `true`.
 ```js
 await customers.delete(made.id);
 ```
+
+### `visitors.create(data?, options?)`
+
+Mint an identity for one browser, with a key that holds the `visitors` right.
+Answers `{ id, token, external_id, expires, created }`; the token is in that answer and in no other.
+`data.externalId` binds the visitor to your own user id.
+See [Visitors](#visitors).
+
+```js
+const minted = await comments.visitors.create({ externalId: user.id });
+```
+
+## Visitors
+
+A key is one credential for a whole site, so every browser holding it is the same caller.
+A **visitor** is an identity for one browser, minted with a key that has the `visitors` right: the site keeps the token and sends it where the key went.
+
+```js
+const tt = new Truetask('https://tasks.example.com', 'ttdb_live_...');
+
+let token = localStorage.getItem('tt_visitor');
+if (!token) {
+	const minted = await tt.database(COMMENTS).visitors.create();
+	localStorage.setItem('tt_visitor', (token = minted.token));
+}
+
+// From here on the visitor IS the credential. Nothing else changes.
+const comments = new Truetask('https://tasks.example.com', token).database(COMMENTS);
+await comments.create({ title: 'Nice post', Body: 'Thanks for writing this.' });
+```
+
+A visitor carries the key's rights, the key's requests a minute and the key's expiry, and the key's own `visitor_days` decides how long it lasts (90 days by default).
+Revoking the key invalidates every visitor it minted, at once.
+
+What it adds is ownership:
+
+- a row the visitor inserted is stamped with it, and comes back carrying `mine: true`;
+- `filter: 'mine = true'` is that visitor's own rows, which is how a page shows somebody what they wrote;
+- with the key set to **Own rows**, `update` and `delete` reach only those rows. Another visitor's row answers 404, the same as a row that is not there.
+
+A visitor cannot mint another visitor, and a visitor token reaches nothing in Truetask but this one database's rows.
+
+```js
+const mine = await comments.getFullList({ filter: 'mine = true', sort: '-created' });
+await comments.update(mine[0].id, { Body: 'Edited.' }); // the visitor's own row
+```
+
+`visitors.create({ externalId })` binds the visitor to your own user id, which a workspace reader then sees beside the row.
+It is a label and not a proof: a key sitting in a page lets anybody send anybody's id, so bind one only when you mint from your **server**.
+
+To forget a visitor, which is the "delete my account" a site owes somebody who asks, call the route with the visitor's own token (or with the key that minted it):
+
+```js
+await fetch(`${tt.url}/v1/db/${COMMENTS}/visitors/${visitorId}`, {
+	method: 'DELETE',
+	headers: { Authorization: `Bearer ${token}` }
+});
+```
+
+The identity goes and the rows stay, with no owner, so on an Own rows key nobody may change them again.
 
 ## Filters
 

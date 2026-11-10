@@ -15,8 +15,11 @@
 // second thing to learn for no gain. Everything private below is snake_case.
 //
 // It holds no auth store and cancels nothing: a credential is a string the site
-// hands in (a `ttdb_` database key, a personal access token or a session JWT),
-// and the server decides what each one may do.
+// hands in (a `ttdb_` database key, a `ttv_` visitor token, a personal access
+// token or a session JWT), and the server decides what each one may do. That is
+// why a visitor (DEVE-1014) adds one method and nothing else: minting one
+// answers a token, the site keeps it and swaps the bearer string, and every
+// method below works exactly as it did.
 
 /** `per_page` the server allows at most, so `getFullList` asks for whole pages. */
 const BATCH_MAX = 500;
@@ -193,6 +196,32 @@ export class Database {
 		if (!id) throw new Error('database(id): a database id is the board id in its URL.');
 		this.client = client;
 		this.id = id;
+		/**
+		 * The identities this database hands out to a site's visitors
+		 * (DEVE-1014). One method, because that is all a visitor is: a token
+		 * minted with a key, which the site then sends in the key's place.
+		 *
+		 * ```js
+		 * let token = localStorage.getItem('tt_visitor');
+		 * if (!token) {
+		 * 	const minted = await tt.database(id).visitors.create();
+		 * 	localStorage.setItem('tt_visitor', (token = minted.token));
+		 * }
+		 * const mine = new Truetask(url, token).database(id);
+		 * ```
+		 *
+		 * `externalId` binds the visitor to the site's own user id. It is a
+		 * label and not a proof: a key in a page lets anybody send anybody's
+		 * id, so bind one only when minting from your SERVER.
+		 */
+		this.visitors = {
+			create: ({ externalId = '' } = {}, options = {}) =>
+				request(client, this.address('/visitors'), {
+					method: 'POST',
+					body: { external_id: externalId },
+					options
+				})
+		};
 	}
 
 	/** The address of one of this database's routes, for `fetch` and for an error. */

@@ -276,6 +276,40 @@ describe('writing', () => {
 		await assert.rejects(db.delete(''), /a record id is needed/);
 	});
 
+	it('mints a visitor, and takes its token as a plain bearer after', async () => {
+		// The whole of DEVE-1014 on this side: one call that answers a token,
+		// and then nothing else changes. A client holding the visitor's token
+		// sends it where the key went, so every method above is untouched.
+		const minted = {
+			id: 'vis1',
+			token: 'ttv_abc',
+			external_id: 'user_8842',
+			expires: 'e',
+			created: 'c'
+		};
+		const { db, calls } = on({ status: 201, body: minted });
+		assert.deepEqual(await db.visitors.create({ externalId: 'user_8842' }), minted);
+		assert.equal(calls[0].url, 'https://tt.test/v1/db/db1/visitors');
+		assert.equal(calls[0].method, 'POST');
+		assert.deepEqual(calls[0].body, { external_id: 'user_8842' });
+		assert.deepEqual(calls[0].headers, {
+			Authorization: 'Bearer tok_abc',
+			'Content-Type': 'application/json'
+		});
+
+		// Anonymous is the usual case, and the body still carries the key the
+		// server reads, empty, rather than leaving it out.
+		const anon = on({ status: 201, body: { ...minted, external_id: '' } });
+		await anon.db.visitors.create();
+		assert.deepEqual(anon.calls[0].body, { external_id: '' });
+
+		// And the swap: the same client with the visitor's token on it.
+		const { fetch, calls: after } = faked({ body: page([ROW]) });
+		const site = new Truetask('https://tt.test', minted.token, { fetch });
+		await site.database('db1').getList();
+		assert.equal(after[0].headers.Authorization, 'Bearer ttv_abc');
+	});
+
 	it('adds the headers a call brings, and lets them win', async () => {
 		const { db, calls } = on({ body: ROW });
 		await db.create({ title: 'x' }, { headers: { 'X-Mine': '1', Authorization: 'Bearer other' } });
