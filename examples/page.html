@@ -1,0 +1,127 @@
+<!doctype html>
+<!--
+	A customer list on a plain page: no bundler, no framework, no CDN.
+
+	Copy `index.js` next to this file as `truetask-db.js`, fill in the three
+	values below, and open it from a static server or straight off the disk.
+	The search box binds what the person typed through `tt.filter()`, so an
+	apostrophe in a name is a search and not a broken filter.
+
+	The credential in a page is public. Give it a database key that can only
+	read the one database this page shows.
+-->
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Our customers</title>
+		<style>
+			:root {
+				font-family: ui-sans-serif, system-ui, sans-serif;
+				color: #18181b;
+				background: #fafafa;
+			}
+			body {
+				margin: 0;
+				padding: 24px 20px 40px;
+				max-width: 640px;
+			}
+			h1 {
+				margin: 0 0 4px;
+				font-size: 20px;
+				font-weight: 600;
+			}
+			p.count {
+				margin: 0 0 16px;
+				font-size: 13px;
+				color: #71717a;
+			}
+			input {
+				box-sizing: border-box;
+				width: 100%;
+				padding: 9px 12px;
+				font: inherit;
+				font-size: 14px;
+				border: 1px solid #e4e4e7;
+				border-radius: 8px;
+				background: #fff;
+			}
+			ul {
+				list-style: none;
+				margin: 16px 0 0;
+				padding: 0;
+				background: #fff;
+				border: 1px solid #efeff1;
+				border-radius: 10px;
+			}
+			li {
+				display: flex;
+				align-items: baseline;
+				justify-content: space-between;
+				gap: 12px;
+				padding: 11px 14px;
+			}
+			li + li {
+				border-top: 1px solid #f4f4f5;
+			}
+			.name {
+				min-width: 0;
+				font-size: 14px;
+				overflow-wrap: anywhere;
+			}
+			.amount {
+				font-size: 13px;
+				font-variant-numeric: tabular-nums;
+				color: #52525b;
+				white-space: nowrap;
+			}
+			.paused {
+				color: #a1a1aa;
+			}
+		</style>
+	</head>
+	<body>
+		<h1>Our customers</h1>
+		<p class="count" id="count">Loading</p>
+		<input id="search" type="search" placeholder="Search customers" autocomplete="off" />
+		<ul id="rows"></ul>
+
+		<script type="module">
+			import Truetask from './truetask-db.js';
+
+			const TRUETASK = 'https://tasks.example.com';
+			const KEY = 'ttdb_live_...';
+			const DATABASE = 'the database id from its address';
+
+			const tt = new Truetask(TRUETASK, KEY);
+			const customers = tt.database(DATABASE);
+			const rows = document.getElementById('rows');
+			const count = document.getElementById('count');
+			const money = new Intl.NumberFormat('en', { style: 'currency', currency: 'EUR' });
+
+			const draw = async (term) => {
+				try {
+					const page = await customers.getList(1, 20, {
+						filter: term ? tt.filter('title ~ {:q}', { q: term }) : '',
+						sort: '-Amount'
+					});
+					count.textContent = `${page.totalItems} customer${page.totalItems === 1 ? '' : 's'}`;
+					rows.innerHTML = page.items
+						.map(
+							(row) =>
+								`<li><span class="name ${row.Status === 'Paused' ? 'paused' : ''}">${row.title}</span>` +
+								`<span class="amount">${money.format(row.Amount || 0)}</span></li>`
+						)
+						.join('');
+				} catch (err) {
+					// Every refusal is a ClientResponseError, and its message is the
+					// server's own `detail`.
+					count.textContent = err.message;
+				}
+			};
+
+			document.getElementById('search').addEventListener('input', (e) => draw(e.target.value));
+			await draw('');
+		</script>
+	</body>
+</html>
