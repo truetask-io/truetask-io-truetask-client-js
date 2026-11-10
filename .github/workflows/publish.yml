@@ -1,0 +1,57 @@
+# A tag publishes the package to npm. Nothing here holds a token.
+#
+# npm authenticates the workflow itself through OIDC (trusted publishing),
+# so the only setup is once, on npm: the package's Settings -> Trusted
+# publisher -> GitHub Actions, repository truetask-io/truetask-client-js,
+# workflow publish.yml, environment npm. The @truetask organisation has to
+# exist first; a scope cannot be created by a publish.
+#
+#   git tag v0.1.0 && git push origin v0.1.0
+#
+# --provenance signs the tarball against this run, which is what puts the
+# verified badge on the npm page. It needs id-token and a `repository` in
+# package.json that matches this repo.
+name: publish
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  npm:
+    name: npm
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      # Trusted publishing needs npm 11.5.1 or newer, which is newer than
+      # the npm any current Node image ships with.
+      - run: npm install -g npm@latest
+
+      - name: The tag says what the package says
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          tag="${GITHUB_REF#refs/tags/v}"
+          pkg="$(node -p "require('./package.json').version")"
+          if [ "$tag" != "$pkg" ]; then
+            echo "tag v$tag but package.json says $pkg" >&2
+            exit 1
+          fi
+          echo "publishing $pkg"
+
+      - run: npm test
+
+      - run: npm publish --access public --provenance

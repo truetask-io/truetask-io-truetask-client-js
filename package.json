@@ -4,6 +4,14 @@
 	"description": "Read and write a Truetask database from a website, the way the PocketBase SDK does.",
 	"license": "MIT",
 	"author": "Truetask",
+	"homepage": "https://github.com/truetask-io/truetask-client-js#readme",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/truetask-io/truetask-client-js.git"
+	},
+	"bugs": {
+		"url": "https://github.com/truetask-io/truetask-client-js/issues"
+	},
 	"type": "module",
 	"scripts": {
 		"test": "node --test"
@@ -20,7 +28,8 @@
 	},
 	"sideEffects": false,
 	"publishConfig": {
-		"access": "public"
+		"access": "public",
+		"provenance": true
 	},
 	"keywords": ["truetask", "database", "client", "sdk", "pocketbase"]
 }

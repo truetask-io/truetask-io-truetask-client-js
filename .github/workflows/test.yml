@@ -1,0 +1,58 @@
+# Every Node the package declares, on every push.
+#
+# 20 is the floor: node:test's runner and fetch are both stable there, and
+# the client uses nothing newer.
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["20", "22", "24"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      # No install step: the package has no dependencies.
+      - run: npm test
+
+  package:
+    name: The tarball holds what it should
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # `files` in package.json is a list a typo silently shortens, so the
+      # tarball is unpacked and imported rather than trusted.
+      - name: Pack it, install it somewhere else, import it
+        run: |
+          npm pack --silent
+          mkdir /tmp/probe && cd /tmp/probe
+          npm init -y >/dev/null
+          npm install --silent "$GITHUB_WORKSPACE"/truetask-db-*.tgz
+          node --input-type=module -e "
+            import Truetask from '@truetask/db';
+            const tt = new Truetask('https://example.com', 'ttdb_x');
+            if (typeof tt.database !== 'function') throw new Error('no database()');
+            console.log('imported from the tarball');
+          "
+          test -f node_modules/@truetask/db/index.d.ts || { echo 'the types did not ship' >&2; exit 1; }
