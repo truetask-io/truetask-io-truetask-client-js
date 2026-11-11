@@ -30,16 +30,15 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      # Trusted publishing needs npm 11.5.1 or newer, which Node 24 ships.
+      # No cache: a poisoned one could reach the OIDC token this job holds.
+      - uses: actions/setup-node@v7
         with:
-          node-version: "22"
+          node-version: "24"
           registry-url: "https://registry.npmjs.org"
-
-      # Trusted publishing needs npm 11.5.1 or newer, which is newer than
-      # the npm any current Node image ships with.
-      - run: npm install -g npm@latest
+          package-manager-cache: false
 
       - name: The tag says what the package says
         if: startsWith(github.ref, 'refs/tags/')
