@@ -352,6 +352,17 @@ describe('refusals', () => {
 		assert.equal(err.message, 'Truetask answered 422.');
 	});
 
+	it('reads a structured detail as its message, the shape a plan refusal takes', async () => {
+		const body = {
+			detail: { feature: 'database_keys', message: 'Database API keys need a paid plan' }
+		};
+		const { db } = on({ status: 403, body });
+		const err = await refusal(db.getList());
+		assert.equal(err.status, 403);
+		assert.equal(err.message, 'Database API keys need a paid plan');
+		assert.equal(err.response.detail.feature, 'database_keys');
+	});
+
 	it('reads how long to wait off a 429', async () => {
 		const { db } = on({
 			status: 429,

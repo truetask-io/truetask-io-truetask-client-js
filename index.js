@@ -33,7 +33,8 @@ const PER_PAGE_DEFAULT = 30;
  * `status` is the HTTP status, or 0 when the request never got an answer.
  * `response` is the server's body as it came (`{detail}` from Truetask, or the
  * raw text when something in front of it answered with a page of HTML).
- * `message` is the server's `detail` when there is one.
+ * `message` is the server's `detail` when there is one, or the `message` a
+ * structured detail carries (a plan refusal names its `feature` beside it).
  */
 export class ClientResponseError extends Error {
 	constructor({
@@ -43,10 +44,13 @@ export class ClientResponseError extends Error {
 		isAbort = false,
 		originalError = null
 	} = {}) {
+		const body_detail = response && typeof response === 'object' ? response.detail : null;
 		const detail =
-			response && typeof response === 'object' && typeof response.detail === 'string'
-				? response.detail
-				: '';
+			typeof body_detail === 'string'
+				? body_detail
+				: body_detail && typeof body_detail.message === 'string'
+					? body_detail.message
+					: '';
 		super(detail || default_message(status, isAbort, originalError));
 		this.name = 'ClientResponseError';
 		this.url = url;

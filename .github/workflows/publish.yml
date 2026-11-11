@@ -3,8 +3,8 @@
 # npm authenticates the workflow itself through OIDC (trusted publishing),
 # so the only setup is once, on npm: the package's Settings -> Trusted
 # publisher -> GitHub Actions, repository truetask-io/truetask-client-js,
-# workflow publish.yml, environment npm. The @truetask organisation has to
-# exist first; a scope cannot be created by a publish.
+# workflow publish.yml, environment npm. @truetask is the scope of the npm
+# account truetask, so no organisation is needed.
 #
 #   git tag v0.1.0 && git push origin v0.1.0
 #
@@ -52,6 +52,21 @@ jobs:
           fi
           echo "publishing $pkg"
 
+      # 0.1.0 went out by hand, so a trusted publisher had a package to be
+      # attached to. Its tag, and any re-run, finds the version there and
+      # publishes nothing.
+      - name: The version is not on npm yet
+        id: fresh
+        run: |
+          pkg="$(node -p "require('./package.json').version")"
+          if [ -n "$(npm view "@truetask/db@$pkg" version 2>/dev/null)" ]; then
+            echo "@truetask/db@$pkg is already on npm, nothing to publish"
+            echo "publish=no" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=yes" >> "$GITHUB_OUTPUT"
+          fi
+
       - run: npm test
 
-      - run: npm publish --access public --provenance
+      - if: steps.fresh.outputs.publish == 'yes'
+        run: npm publish --access public --provenance

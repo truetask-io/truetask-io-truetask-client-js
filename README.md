@@ -33,7 +33,7 @@ npm install @truetask/db
 ```
 
 Or copy `index.js` into your own files and import it by path.
-There is no CDN build and there never will be: the file is 12 KB, and a site serving it itself is one less thing between a visitor and the page.
+There is no CDN build and there never will be: the file is about 15 KB, and a site serving it itself is one less thing between a visitor and the page.
 
 ```html
 <script type="module">
@@ -97,6 +97,9 @@ The **credential** is a bearer string, and Truetask takes four kinds:
 
 A database key is the one to give a website: open the database, Share board, New key, and it names what the key may do, when it stops working and how many requests a minute it gets.
 The secret is shown once.
+
+Database keys and visitors come with every self-hosted Truetask, and on Truetask Cloud with a paid plan or a running trial.
+On Cloud's Free plan the Share dialog offers no New key, and a key answers 403 with `Database API keys need a paid plan` until the plan is paid.
 
 The server decides, every call: a credential that may only read answers 403 to a write, with a sentence saying so.
 On the database itself, a board viewer reads, an editor and an admin read and write, and a guest is refused.
@@ -379,7 +382,7 @@ What the statuses mean here:
 
 - **400** the filter, the sort, `fields` or `expand` cannot be read, or the database is too large to filter on a column.
 - **401** the credential is missing, expired or not a credential.
-- **403** the credential may not do this to this database.
+- **403** the credential may not do this to this database, or the workspace's plan has no database keys.
 - **404** no such database, or no such row in it. A board that is not a database says the same thing: which it is, is not a caller's business.
 - **422** a value a column cannot hold, an unknown column, or a computed one. The message names the column.
 - **429** too many requests. Wait `retryAfter` seconds.

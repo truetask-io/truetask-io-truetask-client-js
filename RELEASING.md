@@ -8,9 +8,8 @@ No token is stored anywhere: npm authenticates the workflow itself through OIDC,
 1. Create `truetask-io/truetask-client-js` on GitHub, empty.
    Decline the README and the license it offers, since this history already has them.
 2. Add a deploy key with write access, then push `main`.
-3. Create the `@truetask` organisation on npm.
-   A scope cannot be created by a publish, so this comes first.
-   Public packages in it are free.
+3. Sign in to npm as `truetask`.
+   `@truetask` is that account's own scope, so no organisation is needed.
 4. Publish `0.1.0` once by hand, so the package exists for a trusted publisher to be attached to:
 
 ```bash
@@ -18,13 +17,18 @@ npm login
 npm publish --access public
 ```
 
+   This one has no provenance, since provenance is signed by a CI run and a laptop is not one.
+   That is why `--provenance` lives in the workflow and not in `publishConfig`: there it would make this command fail.
+   Every version after it carries provenance.
+
 5. On npm, open the package's Settings -> Trusted publisher -> GitHub Actions:
    - Repository: `truetask-io/truetask-client-js`
    - Workflow: `publish.yml`
    - Environment: `npm`
 
-6. In the repo's Settings -> Environments, create `npm`.
-7. Remove the token `npm login` wrote: `rm ~/.npmrc`.
+6. GitHub creates the `npm` environment the first time the workflow names it.
+   Create it ahead in Settings -> Environments only to add yourself as a required reviewer.
+7. Sign out with `npm logout`, which revokes the token `npm login` made instead of only deleting its copy.
    Every release after the first one goes through the workflow.
 
 ## Each release
@@ -39,6 +43,7 @@ git push origin main v0.1.0
 ```
 
 The workflow refuses a tag that disagrees with `package.json`, runs the tests, and publishes with provenance.
+A version already on npm is left alone, so the tag of the hand-published `0.1.0` runs green and publishes nothing.
 
 npm only unpublishes a version inside 72 hours, and only when nothing depends on it.
 After that a mistake costs a patch release.
