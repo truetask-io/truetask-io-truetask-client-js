@@ -21,10 +21,16 @@ npm publish --access public
    That is why `--provenance` lives in the workflow and not in `publishConfig`: there it would make this command fail.
    Every version after it carries provenance.
 
-5. On npm, open the package's Settings -> Trusted publisher -> GitHub Actions:
-   - Repository: `truetask-io/truetask-client-js`
-   - Workflow: `publish.yml`
-   - Environment: `npm`
+5. Attach the trusted publisher while still signed in, then read it back:
+
+```bash
+npm trust github @truetask/db --file publish.yml --repo truetask-io/truetask-client-js --env npm
+npm trust list @truetask/db
+```
+
+   npm asks for the second factor, so this runs in a terminal and never in CI.
+   The list is the only way to check the publisher short of a release.
+   The package's Settings -> Trusted publisher page on npm does the same, with the same three values.
 
 6. GitHub creates the `npm` environment the first time the workflow names it.
    Create it ahead in Settings -> Environments only to add yourself as a required reviewer.
